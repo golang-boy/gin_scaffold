@@ -1,0 +1,2 @@
+[devops]
+test  ansible_ssh_host=192.168.148.113 ansible_ssh_port=22 ansible_ssh_user=root ansible_ssh_pass=ws-123456

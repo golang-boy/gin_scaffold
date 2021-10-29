@@ -1,0 +1,12 @@
+---
+- name: Deploy gin_scaffold
+  hosts: all
+  become: true
+  tasks:  
+    - name: 拷贝镜像包 
+      copy: 
+        src: "{{ workspace }}/images/{{ image }}"
+        dest: "{{ authbox }}/images"
+    - name: 生成.manual文件
+      shell: "echo images/{{ image }} > {{ authbox }}/.manual"
+      

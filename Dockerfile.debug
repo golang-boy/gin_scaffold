@@ -1,0 +1,47 @@
+FROM golang:1.15.1 AS build-env
+
+ENV CGO_ENABLED 0
+ENV GOOS "linux"
+ENV GOARCH "amd64"
+ADD . /gin_scaffold
+
+WORKDIR /gin_scaffold
+RUN go env -w GOPROXY=https://goproxy.cn,direct
+RUN go build -gcflags "all=-N -l"  -o  ./bin/gin_scaffold  main.go
+
+RUN go get github.com/go-delve/delve/cmd/dlv
+
+FROM alpine:3.9 as builder
+ARG MASSCAN_GIT_URL=https://github.com/robertdavidgraham/masscan
+
+RUN set -ex; \
+  apk add --no-cache libcap \
+                        libpcap-dev \
+  && apk add --virtual .deps build-base \
+                             linux-headers \
+                             git \
+                             clang \
+                             clang-dev
+RUN git clone https://github.com/robertdavidgraham/masscan.git \
+  && cd /masscan \
+  && make
+
+FROM alpine:3.9
+
+RUN apk add ca-certificates && \
+    apk add --no-cache libpcap-dev && \
+    apk add libssh2 --no-cache && \
+	apk add nmap && \
+	apk add --no-cache libc6-compat && \
+	rm -rf /var/cache/apk/* 
+
+EXPOSE 2345
+EXPOSE 8023
+
+WORKDIR /
+
+COPY --from=builder /masscan/bin/masscan /bin/masscan
+COPY --from=build-env /go/bin/dlv /gin_scaffold/bin/gin_scaffold  /
+
+RUN chmod +x dlv && chmod +x /gin_scaffold
+ENTRYPOINT ["/dlv", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient","--log=true", "exec", "/gin_scaffold"]
